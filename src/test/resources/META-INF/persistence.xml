@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<persistence
+    xmlns="http://java.sun.com/xml/ns/persistence"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://java.sun.com/xml/ns/persistence http://java.sun.com/xml/ns/persistence/persistence_2_0.xsd"
+    version="2.0">
+
+    <persistence-unit name="account-ws-test">
+        <description>
+            EveKit Account Web Service Unit Test persistence unit
+        </description>
+        
+        <class>enterprises.orbital.db.DBProperty</class>
+        <class>enterprises.orbital.evekit.account.GeneralSequenceNumber</class>
+        <class>enterprises.orbital.evekit.account.EveKitUserAccount</class>
+        <class>enterprises.orbital.evekit.account.EveKitUserAuthSource</class>
+        <class>enterprises.orbital.evekit.account.SynchronizedAccountAccessKey</class>
+        <class>enterprises.orbital.evekit.account.SynchronizedEveAccount</class>
+        <class>enterprises.orbital.evekit.model.CapsuleerSyncTracker</class>
+        <class>enterprises.orbital.evekit.model.CorporationSyncTracker</class>
+        <class>enterprises.orbital.evekit.model.SyncTracker</class>
+
+        <properties>
+            <property name="javax.persistence.jdbc.driver" value="org.hsqldb.jdbcDriver"/>
+            <property name="javax.persistence.jdbc.url" value="jdbc:hsqldb:mem:testdb"/>
+            <property name="javax.persistence.jdbc.user" value="sa"/>
+            <property name="javax.persistence.jdbc.password" value=""/>
+            <property name="hibernate.dialect" value="org.hibernate.dialect.HSQLDialect"/>
+            <property name="hibernate.hbm2ddl.auto" value="create"/>
+            <property name="hibernate.show_sql" value="false" />
+        </properties>
+
+    </persistence-unit>
+
+</persistence>
