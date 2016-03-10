@@ -23,6 +23,7 @@ import enterprises.orbital.evekit.account.EveKitUserAccount;
 import enterprises.orbital.evekit.account.EveKitUserAuthSource;
 import enterprises.orbital.evekit.account.SynchronizedAccountAccessKey;
 import enterprises.orbital.evekit.account.SynchronizedEveAccount;
+import enterprises.orbital.evekit.model.SyncTracker;
 import enterprises.orbital.evekit.ws.common.ServiceError;
 import enterprises.orbital.oauth.AuthUtil;
 import io.swagger.annotations.Api;
@@ -118,6 +119,11 @@ public class AccountWS {
       result.addAll(accounts);
     }
     // Finish
+    for (SynchronizedEveAccount next : result) {
+      // Update last synchronized time
+      SyncTracker tracker = SyncTracker.getLatestFinishedTracker(next);
+      if (tracker != null) next.setLastSynchronized(tracker.getSyncEnd());
+    }
     return Response.ok().entity(result).build();
   }
 
