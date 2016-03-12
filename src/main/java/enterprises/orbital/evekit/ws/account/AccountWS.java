@@ -23,6 +23,8 @@ import enterprises.orbital.evekit.account.EveKitUserAccount;
 import enterprises.orbital.evekit.account.EveKitUserAuthSource;
 import enterprises.orbital.evekit.account.SynchronizedAccountAccessKey;
 import enterprises.orbital.evekit.account.SynchronizedEveAccount;
+import enterprises.orbital.evekit.model.CapsuleerSyncTracker;
+import enterprises.orbital.evekit.model.CorporationSyncTracker;
 import enterprises.orbital.evekit.model.SyncTracker;
 import enterprises.orbital.evekit.ws.common.ServiceError;
 import enterprises.orbital.oauth.AuthUtil;
@@ -88,7 +90,7 @@ public class AccountWS {
       ServiceError errMsg = new ServiceError(Status.UNAUTHORIZED.getStatusCode(), "Requestor not logged in");
       return Response.status(Status.UNAUTHORIZED).entity(errMsg).build();
     }
-    if (uid != -1) {
+    if (user.getID() != uid && uid != -1) {
       if (!user.isAdmin()) {
         ServiceError errMsg = new ServiceError(Status.UNAUTHORIZED.getStatusCode(), "Requestor must be an admin for this request");
         return Response.status(Status.UNAUTHORIZED).entity(errMsg).build();
@@ -181,7 +183,7 @@ public class AccountWS {
       ServiceError errMsg = new ServiceError(Status.UNAUTHORIZED.getStatusCode(), "Requestor not logged in");
       return Response.status(Status.UNAUTHORIZED).entity(errMsg).build();
     }
-    if (uid != -1) {
+    if (user.getID() != uid && uid != -1) {
       if (!user.isAdmin()) {
         ServiceError errMsg = new ServiceError(Status.UNAUTHORIZED.getStatusCode(), "Requestor must be an admin for this request");
         return Response.status(Status.UNAUTHORIZED).entity(errMsg).build();
@@ -273,7 +275,7 @@ public class AccountWS {
       ServiceError errMsg = new ServiceError(Status.UNAUTHORIZED.getStatusCode(), "Requestor not logged in");
       return Response.status(Status.UNAUTHORIZED).entity(errMsg).build();
     }
-    if (uid != -1) {
+    if (user.getID() != uid && uid != -1) {
       if (!user.isAdmin()) {
         ServiceError errMsg = new ServiceError(Status.UNAUTHORIZED.getStatusCode(), "Requestor must be an admin for this request");
         return Response.status(Status.UNAUTHORIZED).entity(errMsg).build();
@@ -340,7 +342,7 @@ public class AccountWS {
       ServiceError errMsg = new ServiceError(Status.UNAUTHORIZED.getStatusCode(), "Requestor not logged in");
       return Response.status(Status.UNAUTHORIZED).entity(errMsg).build();
     }
-    if (uid != -1) {
+    if (user.getID() != uid && uid != -1) {
       if (!user.isAdmin()) {
         ServiceError errMsg = new ServiceError(Status.UNAUTHORIZED.getStatusCode(), "Requestor must be an admin for this request");
         return Response.status(Status.UNAUTHORIZED).entity(errMsg).build();
@@ -365,6 +367,81 @@ public class AccountWS {
           Status.INTERNAL_SERVER_ERROR.getStatusCode(), "Internal error marking account, contact admin if this problem persists");
       return Response.status(Status.INTERNAL_SERVER_ERROR).entity(errMsg).build();
     }
+    return Response.ok().build();
+  }
+
+  @Path("/start_sync/{uid}/{aid}")
+  @GET
+  @ApiOperation(
+      value = "Request a sync of the given account and, optionally, the given user id",
+      notes = "Initiates a sync request for the given account.  The sync will only occur if sufficient time has elapsed since the last sync for this account.")
+  @ApiResponses(
+      value = {
+          @ApiResponse(
+              code = 200,
+              message = "sync request initiated"),
+          @ApiResponse(
+              code = 401,
+              message = "requesting for other than logged in user but requestor not logged in or not an admin",
+              response = ServiceError.class),
+          @ApiResponse(
+              code = 404,
+              message = "specified user or sync account not found",
+              response = ServiceError.class),
+          @ApiResponse(
+              code = 500,
+              message = "Internal account service service error",
+              response = ServiceError.class),
+  })
+  public Response requestSync(
+                              @Context HttpServletRequest request,
+                              @PathParam("uid") @ApiParam(
+                                  name = "uid",
+                                  required = true,
+                                  value = "ID of user for which a sync will be initiated.  Set to -1 to retrieve for the current logged in user.") long uid,
+                              @PathParam("aid") @ApiParam(
+                                  name = "aid",
+                                  required = true,
+                                  value = "ID of sync account for which a sync will be initiated.") long aid) {
+    // Retrieve user and verify as needed
+    EveKitUserAccount user = (EveKitUserAccount) AuthUtil.getCurrentUser(request);
+    if (user == null) {
+      ServiceError errMsg = new ServiceError(Status.UNAUTHORIZED.getStatusCode(), "Requestor not logged in");
+      return Response.status(Status.UNAUTHORIZED).entity(errMsg).build();
+    }
+    if (user.getID() != uid && uid != -1) {
+      if (!user.isAdmin()) {
+        ServiceError errMsg = new ServiceError(Status.UNAUTHORIZED.getStatusCode(), "Requestor must be an admin for this request");
+        return Response.status(Status.UNAUTHORIZED).entity(errMsg).build();
+      } else {
+        user = EveKitUserAccount.getAccount(uid);
+        if (user == null) {
+          ServiceError errMsg = new ServiceError(Status.NOT_FOUND.getStatusCode(), "Target user not found");
+          return Response.status(Status.NOT_FOUND).entity(errMsg).build();
+        }
+      }
+    }
+    // Retrieve target account
+    SynchronizedEveAccount sa = SynchronizedEveAccount.getSynchronizedAccount(user, aid, true);
+    if (sa == null) {
+      ServiceError errMsg = new ServiceError(Status.NOT_FOUND.getStatusCode(), "Account with given ID not found");
+      return Response.status(Status.NOT_FOUND).entity(errMsg).build();
+    }
+    // Create a tracker for this account. This will cause the sync manager to attempt a sync if possible
+    if (sa.isCharacterType()) {
+      if (CapsuleerSyncTracker.createOrGetUnfinishedTracker(sa) == null) {
+        ServiceError errMsg = new ServiceError(
+            Status.INTERNAL_SERVER_ERROR.getStatusCode(), "Error creating sync request.  If this problem persists, please contact the system administrator.");
+        return Response.status(Status.INTERNAL_SERVER_ERROR).entity(errMsg).build();
+      }
+    } else {
+      if (CorporationSyncTracker.createOrGetUnfinishedTracker(sa) == null) {
+        ServiceError errMsg = new ServiceError(
+            Status.INTERNAL_SERVER_ERROR.getStatusCode(), "Error creating sync request.  If this problem persists, please contact the system administrator.");
+        return Response.status(Status.INTERNAL_SERVER_ERROR).entity(errMsg).build();
+      }
+    }
+    // Finish
     return Response.ok().build();
   }
 
@@ -413,7 +490,7 @@ public class AccountWS {
       ServiceError errMsg = new ServiceError(Status.UNAUTHORIZED.getStatusCode(), "Requestor not logged in");
       return Response.status(Status.UNAUTHORIZED).entity(errMsg).build();
     }
-    if (uid != -1) {
+    if (user.getID() != uid && uid != -1) {
       if (!user.isAdmin()) {
         ServiceError errMsg = new ServiceError(Status.UNAUTHORIZED.getStatusCode(), "Requestor must be an admin for this request");
         return Response.status(Status.UNAUTHORIZED).entity(errMsg).build();
@@ -517,7 +594,7 @@ public class AccountWS {
       ServiceError errMsg = new ServiceError(Status.UNAUTHORIZED.getStatusCode(), "Requestor not logged in");
       return Response.status(Status.UNAUTHORIZED).entity(errMsg).build();
     }
-    if (uid != -1) {
+    if (user.getID() != uid && uid != -1) {
       if (!user.isAdmin()) {
         ServiceError errMsg = new ServiceError(Status.UNAUTHORIZED.getStatusCode(), "Requestor must be an admin for this request");
         return Response.status(Status.UNAUTHORIZED).entity(errMsg).build();
@@ -621,7 +698,7 @@ public class AccountWS {
       ServiceError errMsg = new ServiceError(Status.UNAUTHORIZED.getStatusCode(), "Requestor not logged in");
       return Response.status(Status.UNAUTHORIZED).entity(errMsg).build();
     }
-    if (uid != -1) {
+    if (user.getID() != uid && uid != -1) {
       if (!user.isAdmin()) {
         ServiceError errMsg = new ServiceError(Status.UNAUTHORIZED.getStatusCode(), "Requestor must be an admin for this request");
         return Response.status(Status.UNAUTHORIZED).entity(errMsg).build();
@@ -688,7 +765,7 @@ public class AccountWS {
     EveKitUserAccount user = (EveKitUserAccount) AuthUtil.getCurrentUser(request);
     EveKitUserAuthSource src = null;
     // If requesting for other than the logged in user, check admin
-    if (uid != -1 && (user == null || !user.isAdmin())) {
+    if (user == null || (user.getID() != uid && uid != -1 && !user.isAdmin())) {
       ServiceError errMsg = new ServiceError(
           Status.UNAUTHORIZED.getStatusCode(), "Requesting source for other than local user, but requestor not logged in or not admin");
       return Response.status(Status.UNAUTHORIZED).entity(errMsg).build();
@@ -747,7 +824,7 @@ public class AccountWS {
     // Retrieve current logged in user
     EveKitUserAccount user = (EveKitUserAccount) AuthUtil.getCurrentUser(request);
     // If requesting for other than the logged in user, check admin
-    if (uid != -1 && (user == null || !user.isAdmin())) {
+    if (user == null || (user.getID() != uid && uid != -1 && !user.isAdmin())) {
       ServiceError errMsg = new ServiceError(
           Status.UNAUTHORIZED.getStatusCode(), "Requesting source for other than local user, but requestor not logged in or not admin");
       return Response.status(Status.UNAUTHORIZED).entity(errMsg).build();
