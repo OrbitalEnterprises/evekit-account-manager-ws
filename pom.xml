@@ -3,51 +3,53 @@
   <parent>
     <groupId>enterprises.orbital</groupId>
     <artifactId>license</artifactId>
-    <version>1.0.0</version>
+    <version>1.1.0</version>
   </parent>
   <groupId>enterprises.orbital.evekit</groupId>
   <artifactId>account-manager-ws</artifactId>
-  <version>1.0.2</version>
+  <version>2.0.0</version>
   <name>EveKit Account Manager Web Services</name>
   <description>Swagger annotated web services which expose account management functions</description>
   <url>https://github.com/OrbitalEnterprises/evekit-account-manager-ws</url>
   <scm>
   	<url>https://github.com/OrbitalEnterprises/evekit-account-manager-ws</url>
   	<connection>scm:git:https://github.com/OrbitalEnterprises/evekit-account-manager-ws.git</connection>
-  	<tag>rel_1_0_2</tag>
+  	<tag>rel_2_0_0</tag>
   	<developerConnection>scm:git:git@github.com:OrbitalEnterprises/evekit-account-manager-ws.git</developerConnection>
   </scm>
+  <properties>
+    <evekit.version>2.0.0</evekit.version>
+    <servlet.version>3.1.0</servlet.version>
+    <swagger.version>1.5.7</swagger.version>
+    <hsqldb.version>2.3.3</hsqldb.version>
+    <easymock.version>3.4</easymock.version>
+  </properties>
   <dependencies>
     <dependency>
       <groupId>enterprises.orbital.evekit</groupId>
       <artifactId>account-manager</artifactId>
-      <version>1.0.2</version>
+      <version>${evekit.version}</version>
     </dependency>
     <dependency>
       <groupId>javax.servlet</groupId>
       <artifactId>javax.servlet-api</artifactId>
-      <version>3.1.0</version>
-    </dependency>    
-    <dependency>
-      <groupId>io.swagger</groupId>
-      <artifactId>swagger-annotations</artifactId>
-      <version>1.5.7</version>
-    </dependency> 
+      <version>${servlet.version}</version>
+    </dependency>
     <dependency>
       <groupId>io.swagger</groupId>
       <artifactId>swagger-jersey2-jaxrs</artifactId>
-      <version>1.5.7</version>
+      <version>${swagger.version}</version>
     </dependency>
     <dependency>
 	    <groupId>org.hsqldb</groupId>
 	    <artifactId>hsqldb</artifactId>
-	    <version>2.3.3</version>
+	    <version>${hsqldb.version}</version>
 	    <scope>test</scope>
     </dependency>    
     <dependency>
       <groupId>org.easymock</groupId>
       <artifactId>easymock</artifactId>
-      <version>3.4</version>
+      <version>${easymock.version}</version>
 	    <scope>test</scope>
     </dependency>    
   </dependencies>
