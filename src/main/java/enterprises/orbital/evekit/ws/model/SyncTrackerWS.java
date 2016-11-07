@@ -20,6 +20,7 @@ import enterprises.orbital.evekit.account.EveKitUserAccount;
 import enterprises.orbital.evekit.account.SynchronizedEveAccount;
 import enterprises.orbital.evekit.model.CapsuleerSyncTracker;
 import enterprises.orbital.evekit.model.CorporationSyncTracker;
+import enterprises.orbital.evekit.model.RefSyncTracker;
 import enterprises.orbital.evekit.model.SyncTracker;
 import enterprises.orbital.evekit.ws.common.ServiceError;
 import enterprises.orbital.oauth.AuthUtil;
@@ -36,13 +37,14 @@ import io.swagger.annotations.ApiResponses;
 @Api(
     tags = {
         "Account"
-},
+    },
     produces = "application/json")
 public class SyncTrackerWS {
   @SuppressWarnings("unused")
   private static final Logger log                       = Logger.getLogger(SyncTrackerWS.class.getName());
   public static final int     DEF_MAX_CAP_SYNC_HISTORY  = 100;
   public static final int     DEF_MAX_CORP_SYNC_HISTORY = 100;
+  public static final int     DEF_MAX_REF_SYNC_HISTORY  = 100;
 
   @Path("/cap_sync_history/{aid}")
   @GET
@@ -68,7 +70,7 @@ public class SyncTrackerWS {
               code = 500,
               message = "Internal account service service error",
               response = ServiceError.class),
-  })
+      })
   public Response requestCapsuleerSyncHistory(
                                               @Context HttpServletRequest request,
                                               @PathParam("aid") @ApiParam(
@@ -128,7 +130,7 @@ public class SyncTrackerWS {
               code = 500,
               message = "Internal account service service error",
               response = ServiceError.class),
-  })
+      })
   public Response requestCorporationSyncHistory(
                                                 @Context HttpServletRequest request,
                                                 @PathParam("aid") @ApiParam(
@@ -184,7 +186,7 @@ public class SyncTrackerWS {
               code = 500,
               message = "Internal account service service error",
               response = ServiceError.class),
-  })
+      })
   public Response requestUnfinishedCapsuleerSync(
                                                  @Context HttpServletRequest request) {
     // Retrieve current logged in user
@@ -218,7 +220,7 @@ public class SyncTrackerWS {
               code = 500,
               message = "Internal account service service error",
               response = ServiceError.class),
-  })
+      })
   public Response requestUnfinishedCorporationSync(
                                                    @Context HttpServletRequest request) {
     // Retrieve current logged in user
@@ -254,7 +256,7 @@ public class SyncTrackerWS {
               code = 500,
               message = "Internal account service service error",
               response = ServiceError.class),
-  })
+      })
   public Response requestFinishTracker(
                                        @Context HttpServletRequest request,
                                        @PathParam("uid") @ApiParam(
@@ -268,7 +270,7 @@ public class SyncTrackerWS {
                                        @PathParam("tid") @ApiParam(
                                            name = "tid",
                                            required = true,
-                                           value = "Sync Tracker Account ID") long tid) {
+                                           value = "Sync Tracker ID") long tid) {
     // Retrieve current logged in user
     EveKitUserAccount admin = (EveKitUserAccount) AuthUtil.getCurrentUser(request);
     if (admin == null || !admin.isAdmin()) {
@@ -295,6 +297,136 @@ public class SyncTrackerWS {
     }
     // Finish tracker
     tracker = SyncTracker.finishTracker(tracker);
+    if (tracker == null) {
+      ServiceError errMsg = new ServiceError(Status.INTERNAL_SERVER_ERROR.getStatusCode(), "Failed to finish tracker, contact admin for details");
+      return Response.status(Status.INTERNAL_SERVER_ERROR).entity(errMsg).build();
+    }
+    return Response.ok().build();
+  }
+
+  @Path("/ref_sync_history")
+  @GET
+  @ApiOperation(
+      value = "Retrieve synchronization history for a reference data",
+      notes = "Retrieves reference data synchronization history ordered in descending order by sync start time")
+  @ApiResponses(
+      value = {
+          @ApiResponse(
+              code = 200,
+              message = "reference data sync history",
+              response = RefSyncTracker.class,
+              responseContainer = "array"),
+          @ApiResponse(
+              code = 401,
+              message = "requesting user not authenticated",
+              response = ServiceError.class),
+          @ApiResponse(
+              code = 500,
+              message = "Internal account service service error",
+              response = ServiceError.class),
+      })
+  public Response requestRefSyncHistory(
+                                        @Context HttpServletRequest request,
+                                        @QueryParam("contid") @DefaultValue("-1") @ApiParam(
+                                            name = "contid",
+                                            required = false,
+                                            defaultValue = "-1",
+                                            value = "Optional sync start time before which results will be returned") long contid,
+                                        @QueryParam("maxresults") @ApiParam(
+                                            name = "maxresults",
+                                            required = false,
+                                            value = "Maximum number of results to return") int maxResults) {
+    // Retrieve current logged in user. Must be an admin
+    EveKitUserAccount user = (EveKitUserAccount) AuthUtil.getCurrentUser(request);
+    if (user == null || !user.isAdmin()) {
+      ServiceError errMsg = new ServiceError(Status.UNAUTHORIZED.getStatusCode(), "User not logged in or is not an administrator");
+      return Response.status(Status.UNAUTHORIZED).entity(errMsg).build();
+    }
+    // Set defaults
+    maxResults = OrbitalProperties.getNonzeroLimited(maxResults, (int) PersistentProperty
+        .getLongPropertyWithFallback(OrbitalProperties.getPropertyName(RefSyncTracker.class, "maxresults"), DEF_MAX_REF_SYNC_HISTORY));
+    // Retrieve and return history
+    List<RefSyncTracker> results = RefSyncTracker.getHistory(contid, maxResults);
+    return Response.ok().entity(results).build();
+  }
+
+  @Path("/ref_sync_unfinished")
+  @GET
+  @ApiOperation(
+      value = "Retrieve all unfinished ref data synchronization trackers",
+      notes = "Retrieves ref data synchronization trackers which are not yet finished")
+  @ApiResponses(
+      value = {
+          @ApiResponse(
+              code = 200,
+              message = "list of unfinished ref data sync trackers",
+              response = RefSyncTracker.class,
+              responseContainer = "array"),
+          @ApiResponse(
+              code = 401,
+              message = "requesting user not authenticated or not an admin",
+              response = ServiceError.class),
+          @ApiResponse(
+              code = 500,
+              message = "Internal account service service error",
+              response = ServiceError.class),
+      })
+  public Response requestUnfinishedRefSync(
+                                           @Context HttpServletRequest request) {
+    // Retrieve current logged in user
+    EveKitUserAccount user = (EveKitUserAccount) AuthUtil.getCurrentUser(request);
+    if (user == null || !user.isAdmin()) {
+      ServiceError errMsg = new ServiceError(Status.UNAUTHORIZED.getStatusCode(), "User not logged in or is not an administrator");
+      return Response.status(Status.UNAUTHORIZED).entity(errMsg).build();
+    }
+    // Retrieve and return unfinished
+    List<CapsuleerSyncTracker> results = CapsuleerSyncTracker.getAllUnfinishedTrackers();
+    return Response.ok().entity(results).build();
+  }
+
+  @Path("/finish_ref_tracker/{tid}")
+  @GET
+  @ApiOperation(
+      value = "Force a ref tracker to be marked finished if it's not finished already",
+      notes = "Forces a ref tracker into the finished state whether it's been finished or not")
+  @ApiResponses(
+      value = {
+          @ApiResponse(
+              code = 200,
+              message = "finished successfully"),
+          @ApiResponse(
+              code = 401,
+              message = "requesting user not authenticated or not an admin",
+              response = ServiceError.class),
+          @ApiResponse(
+              code = 404,
+              message = "Given tracker ID not found",
+              response = ServiceError.class),
+          @ApiResponse(
+              code = 500,
+              message = "Internal account service service error",
+              response = ServiceError.class),
+      })
+  public Response requestFinishRefTracker(
+                                          @Context HttpServletRequest request,
+                                          @PathParam("tid") @ApiParam(
+                                              name = "tid",
+                                              required = true,
+                                              value = "Ref Sync Tracker ID") long tid) {
+    // Retrieve current logged in user
+    EveKitUserAccount admin = (EveKitUserAccount) AuthUtil.getCurrentUser(request);
+    if (admin == null || !admin.isAdmin()) {
+      ServiceError errMsg = new ServiceError(Status.UNAUTHORIZED.getStatusCode(), "User not logged in or is not an administrator");
+      return Response.status(Status.UNAUTHORIZED).entity(errMsg).build();
+    }
+    // Extract tracker
+    RefSyncTracker tracker = RefSyncTracker.get(tid);
+    if (tracker == null) {
+      ServiceError errMsg = new ServiceError(Status.NOT_FOUND.getStatusCode(), "Target sync tracker not found");
+      return Response.status(Status.NOT_FOUND).entity(errMsg).build();
+    }
+    // Finish tracker
+    tracker = RefSyncTracker.finishTracker(tracker);
     if (tracker == null) {
       ServiceError errMsg = new ServiceError(Status.INTERNAL_SERVER_ERROR.getStatusCode(), "Failed to finish tracker, contact admin for details");
       return Response.status(Status.INTERNAL_SERVER_ERROR).entity(errMsg).build();
