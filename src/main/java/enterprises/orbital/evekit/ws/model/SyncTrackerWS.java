@@ -380,7 +380,7 @@ public class SyncTrackerWS {
       return Response.status(Status.UNAUTHORIZED).entity(errMsg).build();
     }
     // Retrieve and return unfinished
-    List<CapsuleerSyncTracker> results = CapsuleerSyncTracker.getAllUnfinishedTrackers();
+    List<RefSyncTracker> results = RefSyncTracker.getAllUnfinishedTrackers();
     return Response.ok().entity(results).build();
   }
 
