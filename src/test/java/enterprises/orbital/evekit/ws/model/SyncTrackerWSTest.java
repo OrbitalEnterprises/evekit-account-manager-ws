@@ -1,13 +1,12 @@
 package enterprises.orbital.evekit.ws.model;
 
-import javax.servlet.http.HttpServletRequest;
-import javax.ws.rs.core.Response;
-
+import enterprises.orbital.evekit.TestBase;
 import org.easymock.EasyMock;
 import org.junit.Assert;
 import org.junit.Test;
 
-import enterprises.orbital.evekit.TestBase;
+import javax.servlet.http.HttpServletRequest;
+import javax.ws.rs.core.Response;
 
 public class SyncTrackerWSTest extends TestBase {
 

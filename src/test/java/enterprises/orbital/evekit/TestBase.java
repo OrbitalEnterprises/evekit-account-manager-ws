@@ -1,19 +1,5 @@
 package enterprises.orbital.evekit;
 
-import java.math.BigDecimal;
-import java.math.RoundingMode;
-import java.util.HashSet;
-import java.util.Random;
-import java.util.Set;
-import java.util.logging.Logger;
-
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpSession;
-
-import org.easymock.EasyMock;
-import org.junit.After;
-import org.junit.Before;
-
 import enterprises.orbital.base.OrbitalProperties;
 import enterprises.orbital.base.PersistentProperty;
 import enterprises.orbital.db.DBPropertyProvider;
@@ -21,6 +7,18 @@ import enterprises.orbital.evekit.account.EveKitUserAccount;
 import enterprises.orbital.evekit.account.EveKitUserAccountProvider;
 import enterprises.orbital.evekit.account.EveKitUserAuthSource;
 import enterprises.orbital.oauth.AuthUtil;
+import org.easymock.EasyMock;
+import org.junit.After;
+import org.junit.Before;
+
+import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpSession;
+import java.math.BigDecimal;
+import java.math.RoundingMode;
+import java.util.HashSet;
+import java.util.Random;
+import java.util.Set;
+import java.util.logging.Logger;
 
 public class TestBase {
   @SuppressWarnings("unused")
