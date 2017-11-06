@@ -7,7 +7,7 @@
   </parent>
   <groupId>enterprises.orbital.evekit</groupId>
   <artifactId>account-manager-ws</artifactId>
-  <version>3.1.0</version>
+  <version>4.0.0</version>
   <name>EveKit Account Manager Web Services</name>
   <description>Swagger annotated web services which expose account management functions</description>
   <url>https://github.com/OrbitalEnterprises/evekit-account-manager-ws</url>
@@ -17,17 +17,29 @@
     <developerConnection>scm:git:git@github.com:OrbitalEnterprises/evekit-account-manager-ws.git</developerConnection>
   </scm>
   <properties>
-    <evekit.version>3.1.0</evekit.version>
+    <orbital.toolchain.version>2.3.0</orbital.toolchain.version>
+    <evekit.version>4.0.0</evekit.version>
     <servlet.version>3.1.0</servlet.version>
     <swagger.version>1.5.7</swagger.version>
     <hsqldb.version>2.3.3</hsqldb.version>
     <easymock.version>3.4</easymock.version>
+    <esi.client.version>1.0.0.20171020</esi.client.version>
   </properties>
   <dependencies>
+    <dependency>
+      <groupId>enterprises.orbital</groupId>
+      <artifactId>eve-xml-api</artifactId>
+      <version>${orbital.toolchain.version}</version>
+    </dependency>
     <dependency>
       <groupId>enterprises.orbital.evekit</groupId>
       <artifactId>account-manager</artifactId>
       <version>${evekit.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>enterprises.orbital.eve.esi</groupId>
+      <artifactId>client</artifactId>
+      <version>${esi.client.version}</version>
     </dependency>
     <dependency>
       <groupId>javax.servlet</groupId>
