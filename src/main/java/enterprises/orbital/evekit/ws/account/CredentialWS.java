@@ -381,7 +381,7 @@ public class CredentialWS {
           required = true,
           value = "ID of sync account owning credential to be created.") long aid,
       @ApiParam(
-          name = "scope",
+          name = "scopes",
           required = true,
           value = "Space separated list of scopes for credential") String scopes) {
     // Verify post argument
@@ -415,6 +415,8 @@ public class CredentialWS {
 
   /**
    * Handle the second part of setting an ESI credential by accepting the OAuth callback.
+   * A redirect is always returned, even on error.  In the case of an error, the auth_error
+   * query string will be set for processing on the browser.
    *
    * @param req incoming HTTP request
    * @return a redirect response or error message
@@ -452,17 +454,28 @@ public class CredentialWS {
       log.log(Level.SEVERE, "Configuration error: " + e);
       throw new RuntimeException("Unrecoverable configuration error");
     } catch (AccountUpdateException e) {
-      ServiceError errMsg = new ServiceError(Status.FORBIDDEN.getStatusCode(), e.getMessage());
-      return Response.status(Status.FORBIDDEN)
-                     .entity(errMsg)
-                     .build();
+      // Redirect will contain the error message we need to display
+      builder.setCustomQuery("auth_error=" + e.getMessage());
+      try {
+        return Response.temporaryRedirect(new URI(builder.toString()))
+                       .build();
+      } catch (URISyntaxException f) {
+        // This is a configuration error if this ever happens.  Log it.
+        log.log(Level.SEVERE, "Configuration error: " + e);
+        throw new RuntimeException("Unrecoverable configuration error");
+      }
     } catch (IOException e) {
+      // Redirect will contain the error message we need to display
       log.log(Level.SEVERE, "Error processing token callback", e);
-      ServiceError errMsg = new ServiceError(
-          Status.INTERNAL_SERVER_ERROR.getStatusCode(), "Internal error setting ESI credential, contact admin if problem persists");
-      return Response.status(Status.INTERNAL_SERVER_ERROR)
-                     .entity(errMsg)
-                     .build();
+      builder.setCustomQuery("auth_error=Internal error setting ESI credential, contact admin if problem persists");
+      try {
+        return Response.temporaryRedirect(new URI(builder.toString()))
+                       .build();
+      } catch (URISyntaxException f) {
+        // This is a configuration error if this ever happens.  Log it.
+        log.log(Level.SEVERE, "Configuration error: " + e);
+        throw new RuntimeException("Unrecoverable configuration error");
+      }
     }
   }
 

@@ -3,8 +3,10 @@ package enterprises.orbital.evekit.ws.account;
 import enterprises.orbital.evekit.account.*;
 import enterprises.orbital.evekit.model.CapsuleerSyncTracker;
 import enterprises.orbital.evekit.model.CorporationSyncTracker;
+import enterprises.orbital.evekit.model.ESISyncEndpoint;
 import enterprises.orbital.evekit.model.SyncTracker;
 import enterprises.orbital.evekit.ws.common.ServiceError;
+import enterprises.orbital.evekit.ws.model.ESISyncEndpointModel;
 import enterprises.orbital.oauth.AuthUtil;
 import io.swagger.annotations.*;
 
@@ -137,6 +139,7 @@ public class AccountWS {
         // Update last synchronized time
         SyncTracker tracker = SyncTracker.getLatestFinishedTracker(next);
         if (tracker != null) next.setLastSynchronized(tracker.getSyncEnd());
+        next.updateValid();
       }
       return Response.ok()
                      .entity(result)
@@ -1275,6 +1278,70 @@ public class AccountWS {
                      @SuppressWarnings("unused")
                      public final boolean isAdmin = user.isAdmin();
                    })
+                   .build();
+  }
+
+  /**
+   * Return list of character ESI endpoints.
+   *
+   * @param request incoming HTTP request
+   * @return the list of all character ESI endpoints.
+   */
+  @Path("/list_char_endpoints")
+  @GET
+  @ApiOperation(value = "List all character ESI endpoints")
+  @ApiResponses(
+      value = {
+          @ApiResponse(
+              code = 200,
+              message = "endpoint list",
+              response = ESISyncEndpointModel.class,
+              responseContainer = "array"),
+          @ApiResponse(
+              code = 500,
+              message = "Internal account service service error",
+              response = ServiceError.class),
+      })
+  public Response charEndpoints(
+      @Context HttpServletRequest request) {
+    // Retrieve list and finish
+    List<ESISyncEndpointModel> results = new ArrayList<>();
+    for (ESISyncEndpoint next : ESISyncEndpoint.getCharEndpoints())
+      results.add(ESISyncEndpointModel.fromSyncEndpoint(next));
+      return Response.ok()
+                     .entity(results)
+                     .build();
+  }
+
+  /**
+   * Return list of corporation ESI endpoints.
+   *
+   * @param request incoming HTTP request
+   * @return the list of all corporation ESI endpoints.
+   */
+  @Path("/list_corp_endpoints")
+  @GET
+  @ApiOperation(value = "List all corporation ESI endpoints")
+  @ApiResponses(
+      value = {
+          @ApiResponse(
+              code = 200,
+              message = "endpoint list",
+              response = ESISyncEndpointModel.class,
+              responseContainer = "array"),
+          @ApiResponse(
+              code = 500,
+              message = "Internal account service service error",
+              response = ServiceError.class),
+      })
+  public Response corpEndpoints(
+      @Context HttpServletRequest request) {
+    // Retrieve list and finish
+    List<ESISyncEndpointModel> results = new ArrayList<>();
+    for (ESISyncEndpoint next : ESISyncEndpoint.getCorpEndpoints())
+      results.add(ESISyncEndpointModel.fromSyncEndpoint(next));
+    return Response.ok()
+                   .entity(results)
                    .build();
   }
 
