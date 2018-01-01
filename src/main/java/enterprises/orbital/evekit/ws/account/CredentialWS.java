@@ -196,7 +196,7 @@ public class CredentialWS {
       GetCorporationsCorporationIdOk result = corpApi.getCorporationsCorporationId(charResult.getCorporationId(),
                                                                                    null,
                                                                                    siteAgent, null);
-      corpName = result.getCorporationName();
+      corpName = result.getName();
     } catch (ApiException e) {
       throw new IOException("Exception while retrieving corporation information", e);
     }
