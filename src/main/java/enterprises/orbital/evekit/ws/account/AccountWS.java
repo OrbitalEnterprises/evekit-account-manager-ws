@@ -1,12 +1,8 @@
 package enterprises.orbital.evekit.ws.account;
 
 import enterprises.orbital.evekit.account.*;
-import enterprises.orbital.evekit.model.CapsuleerSyncTracker;
-import enterprises.orbital.evekit.model.CorporationSyncTracker;
-import enterprises.orbital.evekit.model.ESISyncEndpoint;
-import enterprises.orbital.evekit.model.SyncTracker;
+import enterprises.orbital.evekit.model.*;
 import enterprises.orbital.evekit.ws.common.ServiceError;
-import enterprises.orbital.evekit.ws.model.ESISyncEndpointModel;
 import enterprises.orbital.oauth.AuthUtil;
 import io.swagger.annotations.*;
 
@@ -1295,7 +1291,7 @@ public class AccountWS {
           @ApiResponse(
               code = 200,
               message = "endpoint list",
-              response = ESISyncEndpointModel.class,
+              response = ESIScopeDescription.class,
               responseContainer = "array"),
           @ApiResponse(
               code = 500,
@@ -1305,9 +1301,9 @@ public class AccountWS {
   public Response charEndpoints(
       @Context HttpServletRequest request) {
     // Retrieve list and finish
-    List<ESISyncEndpointModel> results = new ArrayList<>();
-    for (ESISyncEndpoint next : ESISyncEndpoint.getCharEndpoints())
-      results.add(ESISyncEndpointModel.fromSyncEndpoint(next));
+    List<ESIScopeDescription> results = new ArrayList<>();
+    for (ESIScope next : ESIScope.getCharScopes())
+      results.add(ESIScopeDescription.fromScope(next));
       return Response.ok()
                      .entity(results)
                      .build();
@@ -1327,7 +1323,7 @@ public class AccountWS {
           @ApiResponse(
               code = 200,
               message = "endpoint list",
-              response = ESISyncEndpointModel.class,
+              response = ESIScopeDescription.class,
               responseContainer = "array"),
           @ApiResponse(
               code = 500,
@@ -1337,9 +1333,9 @@ public class AccountWS {
   public Response corpEndpoints(
       @Context HttpServletRequest request) {
     // Retrieve list and finish
-    List<ESISyncEndpointModel> results = new ArrayList<>();
-    for (ESISyncEndpoint next : ESISyncEndpoint.getCorpEndpoints())
-      results.add(ESISyncEndpointModel.fromSyncEndpoint(next));
+    List<ESIScopeDescription> results = new ArrayList<>();
+    for (ESIScope next : ESIScope.getCorpScopes())
+      results.add(ESIScopeDescription.fromScope(next));
     return Response.ok()
                    .entity(results)
                    .build();
