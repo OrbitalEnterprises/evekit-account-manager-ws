@@ -1,5 +1,6 @@
 package enterprises.orbital.evekit.ws.account;
 
+import enterprises.orbital.base.PersistentProperty;
 import enterprises.orbital.evekit.account.*;
 import enterprises.orbital.evekit.model.*;
 import enterprises.orbital.evekit.ws.common.ServiceError;
@@ -167,7 +168,6 @@ public class AccountWS {
    * @param aid      account to update, or -1 to create a new account
    * @param name     name of new account, or new name of existing account
    * @param charType if true, account will synchronize a character type.  False otherwise.  Ignored for updates to existing accounts.
-   * @param autoSync if true, account will auto-synchronize.  False otherwise.
    * @return newly created or modified account
    */
   @Path("/sync_account/{uid}/{aid}")
@@ -214,11 +214,7 @@ public class AccountWS {
       @QueryParam("charType") @ApiParam(
           name = "charType",
           required = true,
-          value = "True if account will sync a character, false otherwise.  Ignored for updates to existing accounts.") boolean charType,
-      @QueryParam("autoSync") @ApiParam(
-          name = "autoSync",
-          required = true,
-          value = "True if account should auto synchronized, false otherwise") boolean autoSync) {
+          value = "True if account will sync a character, false otherwise.  Ignored for updates to existing accounts.") boolean charType) {
     // Retrieve user and verify as needed
     EveKitUserAccount user = (EveKitUserAccount) AuthUtil.getCurrentUser(request);
     if (user == null) return createUserNotLoggedResponse();
@@ -233,10 +229,10 @@ public class AccountWS {
       SynchronizedEveAccount result;
       if (aid == -1)
         // New account
-        result = SynchronizedEveAccount.createSynchronizedEveAccount(user, name, charType, autoSync);
+        result = SynchronizedEveAccount.createSynchronizedEveAccount(user, name, charType);
       else
         // Update from passed value - legal changes are: name, autoSynchronized
-        result = SynchronizedEveAccount.updateAccount(user, aid, name, autoSync);
+        result = SynchronizedEveAccount.updateAccount(user, aid, name);
 
       result.updateValid();
       return Response.ok()
@@ -1087,18 +1083,19 @@ public class AccountWS {
   }
 
   /**
-   * Change auto synchronization of a synchronized account
+   * Change disabled status of a synchronized account.  This setting is set in a persistent property
+   * and is not stored in the account itself.
    *
    * @param request  incoming HTTP request
    * @param uid      user which owns the account to be changed
    * @param aid      account to be changed
-   * @param autosync new auto synchronization setting
+   * @param disabled true if the account should be disabled, false otherwise
    * @return OK if the setting was changed successfully.
    */
-  @Path("/toggle_auto_sync/{uid}/{aid}/{autosync}")
+  @Path("/toggle_account_disabled/{uid}/{aid}/{disabled}")
   @GET
   @ApiOperation(
-      value = "Change the autosync state of a synchronized account")
+      value = "Change the disabled state of a synchronized account")
   @ApiResponses(
       value = {
           @ApiResponse(
@@ -1117,7 +1114,7 @@ public class AccountWS {
               message = "Internal account service service error",
               response = ServiceError.class),
       })
-  public Response toggleAutoSync(
+  public Response toggleAccountDisabled(
       @Context HttpServletRequest request,
       @PathParam("uid") @ApiParam(
           name = "uid",
@@ -1127,10 +1124,10 @@ public class AccountWS {
           name = "aid",
           required = true,
           value = "ID of sync account to toggle") long aid,
-      @PathParam("autosync") @ApiParam(
-          name = "autosync",
+      @PathParam("disabled") @ApiParam(
+          name = "disabled",
           required = true,
-          value = "New autosync state for user") boolean autosync) {
+          value = "account disabled status") boolean disabled) {
     // Retrieve current logged in user
     EveKitUserAccount user = (EveKitUserAccount) AuthUtil.getCurrentUser(request);
     if (user == null) return createUserNotLoggedResponse();
@@ -1145,8 +1142,7 @@ public class AccountWS {
       SynchronizedEveAccount account = SynchronizedEveAccount.getSynchronizedAccount(user, aid, true);
 
       // Change state and finish
-      account.setAutoSynchronized(autosync);
-      SynchronizedEveAccount.update(account);
+      PersistentProperty.setProperty(account, "disabled", String.valueOf(disabled));
       return Response.ok()
                      .build();
     } catch (UserNotFoundException e) {
@@ -1163,6 +1159,77 @@ public class AccountWS {
     } catch (IOException e) {
       // Error toggling sync state
       ServiceError errMsg = new ServiceError(Status.INTERNAL_SERVER_ERROR.getStatusCode(), "Error changing autosync state, check logs");
+      return Response.status(Status.INTERNAL_SERVER_ERROR)
+                     .entity(errMsg)
+                     .build();
+    }
+  }
+
+  @Path("/is_account_disabled/{uid}/{aid}")
+  @GET
+  @ApiOperation(
+      value = "Check whether a synchronized account is disabled")
+  @ApiResponses(
+      value = {
+          @ApiResponse(
+              code = 200,
+              message = "status returned successfully"),
+          @ApiResponse(
+              code = 401,
+              message = "requesting user not authenticated or not an admin",
+              response = ServiceError.class),
+          @ApiResponse(
+              code = 404,
+              message = "User with the specified ID not found, or account with specified ID not found",
+              response = ServiceError.class),
+          @ApiResponse(
+              code = 500,
+              message = "Internal account service service error",
+              response = ServiceError.class),
+      })
+  public Response isAccountDisabled(
+      @Context HttpServletRequest request,
+      @PathParam("uid") @ApiParam(
+          name = "uid",
+          required = true,
+          value = "ID of user account to toggle") long uid,
+      @PathParam("aid") @ApiParam(
+          name = "aid",
+          required = true,
+          value = "ID of sync account to toggle") long aid) {
+    // Retrieve current logged in user
+    EveKitUserAccount user = (EveKitUserAccount) AuthUtil.getCurrentUser(request);
+    if (user == null) return createUserNotLoggedResponse();
+    Response error = checkRequireAdmin(user, uid);
+    if (error != null) return error;
+
+    try {
+      // Ensure we have proper user
+      if (uid != -1) user = EveKitUserAccount.getAccount(uid);
+
+      // Retrieve target account
+      SynchronizedEveAccount account = SynchronizedEveAccount.getSynchronizedAccount(user, aid, true);
+
+      return Response.ok()
+                     .entity(new Object() {
+                       @SuppressWarnings("unused")
+                       public final boolean isDisabled = PersistentProperty.getBooleanPropertyWithFallback(account, "disabled", false);
+                     })
+                     .build();
+    } catch (UserNotFoundException e) {
+      ServiceError errMsg = new ServiceError(Status.NOT_FOUND.getStatusCode(), "Target user not found");
+      return Response.status(Status.NOT_FOUND)
+                     .entity(errMsg)
+                     .build();
+    } catch (AccountNotFoundException e) {
+      // Target account not found
+      ServiceError errMsg = new ServiceError(Status.NOT_FOUND.getStatusCode(), "Target account not found");
+      return Response.status(Status.NOT_FOUND)
+                     .entity(errMsg)
+                     .build();
+    } catch (IOException e) {
+      // Error toggling sync state
+      ServiceError errMsg = new ServiceError(Status.INTERNAL_SERVER_ERROR.getStatusCode(), "Error reading account status, check logs");
       return Response.status(Status.INTERNAL_SERVER_ERROR)
                      .entity(errMsg)
                      .build();
