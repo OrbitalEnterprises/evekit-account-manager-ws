@@ -125,7 +125,7 @@ public class AccountWS {
       if (uid != -1) user = EveKitUserAccount.getAccount(uid);
 
       // Retrieve either target account or all accounts
-      List<SynchronizedEveAccount> result = new ArrayList<SynchronizedEveAccount>();
+      List<SynchronizedEveAccount> result = new ArrayList<>();
       if (aid != -1)
         result.add(SynchronizedEveAccount.getSynchronizedAccount(user, aid, true));
       else
@@ -134,8 +134,11 @@ public class AccountWS {
       // Finish
       for (SynchronizedEveAccount next : result) {
         // Update last synchronized time
-        SyncTracker tracker = SyncTracker.getLatestFinishedTracker(next);
-        if (tracker != null) next.setLastSynchronized(tracker.getSyncEnd());
+        try {
+          next.setLastSynchronized(ESIEndpointSyncTracker.getAnyLatestFinishedTracker(next).getSyncEnd());
+        } catch (TrackerNotFoundException e) {
+          // ignore
+        }
         next.updateValid();
       }
       return Response.ok()
