@@ -55,30 +55,37 @@ public class CredentialWS {
   // EVE SSO Client ID and Secret to be used for token handling.  These are normally different than the client ID
   // and secret we use for EveKit authentication because the callback path is different and EVE SSO is
   // strict about callback path.
+  @SuppressWarnings("WeakerAccess")
   public static final String PROP_TOKEN_EVE_CLIENT_ID = "enterprises.orbital.token.eve_client_id";
+  @SuppressWarnings("WeakerAccess")
   public static final String PROP_TOKEN_EVE_SECRET_KEY = "enterprises.orbital.token.eve_secret_key";
 
   // The EVE SSO verify URL is generic so we can use whatever authentication is using.
+  @SuppressWarnings("WeakerAccess")
   public static final String PROP_EVE_VERIFY_URL = "enterprises.orbital.auth.eve_verify_url";
 
-  // Location of ESI server
-  public static final String PROP_ESI_SERVER_PATH = "enterprises.orbital.evekit.accountws.esiServerPath";
-  public static final String DEF_ESI_SERVER_PATH = "https://esi.tech.ccp.is/latest";
-
   // Application path.  This is set to construct a proper callback path for ESI token construction.
+  @SuppressWarnings("WeakerAccess")
   public static final String PROP_APP_PATH = "enterprises.orbital.evekit.accountws.apppath";
+  @SuppressWarnings("WeakerAccess")
   public static final String DEF_APP_PATH = "http://localhost/controller";
 
   // Properties to manage the lifetime of temporary tokens for ESI token creation
+  @SuppressWarnings("WeakerAccess")
   public static final String PROP_TEMP_TOKEN_LIFETIME = "enterprises.orbital.evekit.tempTokenLifetime";
+  @SuppressWarnings("WeakerAccess")
   public static final long DEF_TEMP_TOKEN_LIFETIME = TimeUnit.MILLISECONDS.convert(10, TimeUnit.MINUTES);
 
   // Fragment to redirect to on successful re-authorization of an ESI credential.
+  @SuppressWarnings("WeakerAccess")
   public static final String PROP_REAUTH_SUCCESS_FRAGMENT = "enterprises.orbital.evekit.reauthFragment";
+  @SuppressWarnings("WeakerAccess")
   public static final String DEF_REAUTH_SUCCESS_FRAGMENT = "account";
 
   // User agent string for web requests
+  @SuppressWarnings("WeakerAccess")
   public static final String PROP_SITE_AGENT = "enterprises.orbital.evekit.site_agent";
+  @SuppressWarnings("WeakerAccess")
   public static final String DEF_SITE_AGENT = "EveKit/4.0.0 (https://evekit.orbital.enterprises; deadlybulb@orbital.enterprises; )";
 
   /**
@@ -86,10 +93,10 @@ public class CredentialWS {
    *
    * @return initialized URI builder
    */
+  @SuppressWarnings("WeakerAccess")
   protected static URIBuilder makeStandardBuilder() {
     try {
-      URIBuilder builder = new URIBuilder(OrbitalProperties.getGlobalProperty(PROP_APP_PATH, DEF_APP_PATH) + "/");
-      return builder;
+      return new URIBuilder(OrbitalProperties.getGlobalProperty(PROP_APP_PATH, DEF_APP_PATH) + "/");
     } catch (URISyntaxException e) {
       // This is a configuration error if this ever happens.  Log it.
       log.log(Level.SEVERE, "Configuration error: " + e);
@@ -107,6 +114,7 @@ public class CredentialWS {
    * @return response containing authorization URL for client
    * @throws IOException if an error occurs while starting the flow
    */
+  @SuppressWarnings("WeakerAccess")
   protected static Response startTokenFlow(HttpServletRequest request, EveKitUserAccount user,
                                            SynchronizedEveAccount account,
                                            String scopes)
@@ -147,6 +155,7 @@ public class CredentialWS {
    * @throws AccountUpdateException if an inconsistent state would result from setting the credential
    * @throws IOException            on any other error
    */
+  @SuppressWarnings("WeakerAccess")
   protected static void processTokenCallback(HttpServletRequest req, String verifyURL, String eveClientID,
                                              String eveSecretKey)
       throws AccountUpdateException, IOException {
@@ -184,10 +193,12 @@ public class CredentialWS {
     try {
       CharacterApi charApi = new CharacterApi();
       GetCharactersCharacterIdOk charResult = charApi.getCharactersCharacterId((int) charID, null,
+                                                                               null,
                                                                                siteAgent, null);
       corpID = charResult.getCorporationId();
       CorporationApi corpApi = new CorporationApi();
       GetCorporationsCorporationIdOk result = corpApi.getCorporationsCorporationId(charResult.getCorporationId(),
+                                                                                   null,
                                                                                    null,
                                                                                    siteAgent, null);
       corpName = result.getName();
