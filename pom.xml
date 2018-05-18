@@ -7,7 +7,7 @@
   </parent>
   <groupId>enterprises.orbital.evekit</groupId>
   <artifactId>account-manager-ws</artifactId>
-  <version>4.2.0</version>
+  <version>4.2.1</version>
   <name>EveKit Account Manager Web Services</name>
   <description>Swagger annotated web services which expose account management functions</description>
   <url>https://github.com/OrbitalEnterprises/evekit-account-manager-ws</url>
@@ -18,7 +18,7 @@
   </scm>
   <properties>
     <orbital.toolchain.version>2.4.0</orbital.toolchain.version>
-    <evekit.version>4.2.0</evekit.version>
+    <evekit.version>4.2.1</evekit.version>
     <servlet.version>3.1.0</servlet.version>
     <swagger.version>1.5.7</swagger.version>
     <hsqldb.version>2.3.3</hsqldb.version>
