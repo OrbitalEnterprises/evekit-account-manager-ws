@@ -192,15 +192,15 @@ public class CredentialWS {
     long corpID;
     try {
       CharacterApi charApi = new CharacterApi();
+      charApi.getApiClient().setUserAgent(siteAgent);
       GetCharactersCharacterIdOk charResult = charApi.getCharactersCharacterId((int) charID, null,
-                                                                               null,
-                                                                               siteAgent, null);
+                                                                               null);
       corpID = charResult.getCorporationId();
       CorporationApi corpApi = new CorporationApi();
+      corpApi.getApiClient().setUserAgent(siteAgent);
       GetCorporationsCorporationIdOk result = corpApi.getCorporationsCorporationId(charResult.getCorporationId(),
                                                                                    null,
-                                                                                   null,
-                                                                                   siteAgent, null);
+                                                                                   null);
       corpName = result.getName();
     } catch (ApiException e) {
       throw new IOException("Exception while retrieving corporation information", e);

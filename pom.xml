@@ -23,7 +23,7 @@
     <swagger.version>1.5.7</swagger.version>
     <hsqldb.version>2.3.3</hsqldb.version>
     <easymock.version>3.4</easymock.version>
-    <esi.client.version>1.0.0.20180521</esi.client.version>
+    <esi.client.version>1.0.0.20180528</esi.client.version>
   </properties>
   <dependencies>
     <dependency>
