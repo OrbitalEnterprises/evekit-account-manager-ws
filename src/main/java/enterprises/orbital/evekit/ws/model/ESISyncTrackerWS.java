@@ -34,9 +34,10 @@ import java.util.logging.Logger;
 public class ESISyncTrackerWS {
   @SuppressWarnings("unused")
   private static final Logger log = Logger.getLogger(ESISyncTrackerWS.class.getName());
-  private static final int DEF_MAX_ACCOUNT_SYNC_HISTORY = 100;
-  private static final int DEF_MAX_REF_SYNC_HISTORY = 100;
+  private static final int DEF_MAX_ACCOUNT_SYNC_HISTORY = 300;
+  private static final int DEF_MAX_REF_SYNC_HISTORY = 300;
 
+  @SuppressWarnings("Duplicates")
   @Path("/sync_history/{aid}")
   @GET
   @ApiOperation(
@@ -101,6 +102,65 @@ public class ESISyncTrackerWS {
       log.log(Level.WARNING, "query error", e);
       ServiceError errMsg = new ServiceError(
           Status.INTERNAL_SERVER_ERROR.getStatusCode(), "Error retrieving history, contact admin if this problem persists");
+      return Response.status(Status.INTERNAL_SERVER_ERROR)
+                     .entity(errMsg)
+                     .build();
+    }
+  }
+
+  @Path("/next_sync/{aid}")
+  @GET
+  @ApiOperation(
+      value = "Retrieve the next scheduled synchronization trackers for an account",
+      notes = "Retrieves the next scheduled synchronization trackers for an account, in increasing order by schedule time.")
+  @ApiResponses(
+      value = {
+          @ApiResponse(
+              code = 200,
+              message = "next account sync tracker or null",
+              response = ESIEndpointSyncTracker.class,
+              responseContainer = "array"),
+          @ApiResponse(
+              code = 401,
+              message = "requesting user not authenticated",
+              response = ServiceError.class),
+          @ApiResponse(
+              code = 404,
+              message = "requested account ID not found",
+              response = ServiceError.class),
+          @ApiResponse(
+              code = 500,
+              message = "Internal account service service error",
+              response = ServiceError.class),
+      })
+  public Response requestNextSync(
+      @Context HttpServletRequest request,
+      @PathParam("aid") @ApiParam(
+          name = "aid",
+          required = true,
+          value = "Sync Account ID") long aid) {
+    // Retrieve current logged in user
+    EveKitUserAccount user = (EveKitUserAccount) AuthUtil.getCurrentUser(request);
+    if (user == null) return AccountWS.createUserNotLoggedResponse();
+
+    try {
+      // Retrieve SynchronizedEveAccount
+      SynchronizedEveAccount account = SynchronizedEveAccount.getSynchronizedAccount(user, aid, true);
+
+      // Retrieve and return next trackers
+      List<ESIEndpointSyncTracker> results = ESIEndpointSyncTracker.getAllUnfinishedTrackers(account);
+      return Response.ok()
+                     .entity(results)
+                     .build();
+    } catch (AccountNotFoundException e) {
+      ServiceError errMsg = new ServiceError(Status.NOT_FOUND.getStatusCode(), "Sync account with the given ID not found");
+      return Response.status(Status.NOT_FOUND)
+                     .entity(errMsg)
+                     .build();
+    } catch (IOException e) {
+      log.log(Level.WARNING, "query error", e);
+      ServiceError errMsg = new ServiceError(
+          Status.INTERNAL_SERVER_ERROR.getStatusCode(), "Error retrieving next trackers, contact admin if this problem persists");
       return Response.status(Status.INTERNAL_SERVER_ERROR)
                      .entity(errMsg)
                      .build();

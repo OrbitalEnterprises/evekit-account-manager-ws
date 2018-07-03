@@ -1,5 +1,7 @@
 package enterprises.orbital.evekit.ws.account;
 
+import com.sun.corba.se.impl.orbutil.concurrent.Sync;
+import enterprises.orbital.base.OrbitalProperties;
 import enterprises.orbital.base.PersistentProperty;
 import enterprises.orbital.evekit.account.*;
 import enterprises.orbital.evekit.model.*;
@@ -229,6 +231,16 @@ public class AccountWS {
       // Ensure we have proper user
       if (uid != -1) user = EveKitUserAccount.getAccount(uid);
 
+      // Verify name is valid
+      if (name == null || name.length() == 0 || name.length() > SynchronizedEveAccount.SYNC_ACCOUNT_NAME_MAX_LENGTH) {
+        throw new IllegalArgumentException();
+      }
+      for (char el : name.toCharArray()) {
+        if (!Character.isLetterOrDigit(el) && !(el == '_')) {
+          throw new IllegalArgumentException();
+        }
+      }
+
       SynchronizedEveAccount result;
       if (aid == -1)
         // New account
@@ -244,6 +256,12 @@ public class AccountWS {
     } catch (UserNotFoundException e) {
       ServiceError errMsg = new ServiceError(Status.NOT_FOUND.getStatusCode(), "Target user not found");
       return Response.status(Status.NOT_FOUND)
+                     .entity(errMsg)
+                     .build();
+    } catch (IllegalArgumentException e) {
+      // Invalid account name
+      ServiceError errMsg = new ServiceError(Status.BAD_REQUEST.getStatusCode(), "Sync account name must be an alphanumeric string (including underscores) no more than 100 characters in length.");
+      return Response.status(Status.BAD_REQUEST)
                      .entity(errMsg)
                      .build();
     } catch (AccountCreationException e) {
