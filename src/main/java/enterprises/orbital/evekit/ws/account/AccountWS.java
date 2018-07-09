@@ -1,10 +1,10 @@
 package enterprises.orbital.evekit.ws.account;
 
-import com.sun.corba.se.impl.orbutil.concurrent.Sync;
-import enterprises.orbital.base.OrbitalProperties;
 import enterprises.orbital.base.PersistentProperty;
 import enterprises.orbital.evekit.account.*;
-import enterprises.orbital.evekit.model.*;
+import enterprises.orbital.evekit.model.ESIEndpointSyncTracker;
+import enterprises.orbital.evekit.model.ESIScope;
+import enterprises.orbital.evekit.model.TrackerNotFoundException;
 import enterprises.orbital.evekit.ws.common.ServiceError;
 import enterprises.orbital.oauth.AuthUtil;
 import io.swagger.annotations.*;
