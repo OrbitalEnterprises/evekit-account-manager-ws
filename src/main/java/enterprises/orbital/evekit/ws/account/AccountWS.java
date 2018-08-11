@@ -34,6 +34,18 @@ import java.util.List;
 public class AccountWS {
 
   /**
+   * Generate a response for a user who is not an admin.
+   *
+   * @return ready to return error response.
+   */
+  private static Response createUserNotAdminResponse() {
+    ServiceError errMsg = new ServiceError(Status.UNAUTHORIZED.getStatusCode(), "Requestor must be an admin for this request");
+    return Response.status(Status.UNAUTHORIZED)
+                   .entity(errMsg)
+                   .build();
+  }
+
+  /**
    * Checks whether the authenticated user is an administrator in cases where the ID of the authenticated user
    * is different than the ID of the user being acted upon.
    *
@@ -41,13 +53,10 @@ public class AccountWS {
    * @param uid  ID of the user being acted upon, or -1 if another user is NOT being acted upon
    * @return an error response if the authenticated user must be an admin but is not, otherwise null
    */
-  public static Response checkRequireAdmin(EveKitUserAccount user, long uid) {
+  private static Response checkRequireAdmin(EveKitUserAccount user, long uid) {
     if (user.getID() != uid && uid != -1) {
       if (!user.isAdmin()) {
-        ServiceError errMsg = new ServiceError(Status.UNAUTHORIZED.getStatusCode(), "Requestor must be an admin for this request");
-        return Response.status(Status.UNAUTHORIZED)
-                       .entity(errMsg)
-                       .build();
+        return createUserNotAdminResponse();
       } else {
         try {
           EveKitUserAccount.getAccount(uid);
@@ -372,8 +381,8 @@ public class AccountWS {
    *
    * @param request incoming HTTP request
    * @param uid     requesting user, or -1 to use current logged in user
-   * @param aid
-   * @return
+   * @param aid     ID of account to more for deletion
+   * @return OK on success
    */
   @Path("/restore_sync_account/{uid}/{aid}")
   @PUT
@@ -503,7 +512,7 @@ public class AccountWS {
       SynchronizedEveAccount account = SynchronizedEveAccount.getSynchronizedAccount(user, aid, true);
 
       // Retrieve either target key or all keys
-      List<SynchronizedAccountAccessKey> result = new ArrayList<SynchronizedAccountAccessKey>();
+      List<SynchronizedAccountAccessKey> result = new ArrayList<>();
       if (kid != -1)
         result.add(SynchronizedAccountAccessKey.getKeyByOwnerAndID(account, kid));
       else
@@ -744,7 +753,7 @@ public class AccountWS {
       SynchronizedEveAccount account = SynchronizedEveAccount.getSynchronizedAccount(user, aid, false);
 
       // Target key required - find it
-      SynchronizedAccountAccessKey key = SynchronizedAccountAccessKey.getKeyByOwnerAndID(account, kid);
+      SynchronizedAccountAccessKey.getKeyByOwnerAndID(account, kid);
 
       // Delete and return
       SynchronizedAccountAccessKey.deleteKey(account, kid);
@@ -825,13 +834,6 @@ public class AccountWS {
 
       // Retrieve and return source
       EveKitUserAuthSource src = EveKitUserAuthSource.getLastUsedSource(user);
-      if (src == null) {
-        ServiceError errMsg = new ServiceError(
-            Status.INTERNAL_SERVER_ERROR.getStatusCode(), "Error retrieving auth source, please contact the administrator if this error persists");
-        return Response.status(Status.INTERNAL_SERVER_ERROR)
-                       .entity(errMsg)
-                       .build();
-      }
       return Response.ok()
                      .entity(src)
                      .build();
@@ -898,7 +900,6 @@ public class AccountWS {
       if (uid != -1) user = EveKitUserAccount.getAccount(uid);
 
       // Look up sources
-      List<EveKitUserAuthSource> sources = new ArrayList<EveKitUserAuthSource>();
       List<EveKitUserAuthSource> result = EveKitUserAuthSource.getAllSources(user);
       if (result == null) {
         ServiceError errMsg = new ServiceError(
@@ -907,7 +908,7 @@ public class AccountWS {
                        .entity(errMsg)
                        .build();
       }
-      sources.addAll(result);
+      List<EveKitUserAuthSource> sources = new ArrayList<>(result);
       return Response.ok()
                      .entity(sources)
                      .build();
@@ -1336,6 +1337,334 @@ public class AccountWS {
     return Response.ok()
                    .entity(results)
                    .build();
+  }
+
+
+  /**
+   * Create a new notification for a specific user.  Only administrators may create
+   * new notifications, regardless of UID.
+   *
+   * @param request incoming HTTP request
+   * @param uid     user for which notification will be created
+   * @param content content of new notification
+   * @return an instance of EveKitUserNotification representing the new notification
+   */
+  @Path("/note/{uid}")
+  @POST
+  @ApiOperation(
+      value = "Send a notification to a user")
+  @ApiResponses(
+      value = {
+          @ApiResponse(
+              code = 200,
+              message = "note successfully created",
+              response = EveKitUserNotification.class),
+          @ApiResponse(
+              code = 401,
+              message = "requesting user not logged in or not an admin",
+              response = ServiceError.class),
+          @ApiResponse(
+              code = 404,
+              message = "User with the specified ID not found",
+              response = ServiceError.class),
+          @ApiResponse(
+              code = 500,
+              message = "Internal account service service error",
+              response = ServiceError.class),
+      })
+  public Response createNotification(
+      @Context HttpServletRequest request,
+      @PathParam("uid") @ApiParam(
+          name = "uid",
+          required = true,
+          value = "ID of user account for which a note will be created.") long uid,
+      @QueryParam("content") @ApiParam(
+          name = "content",
+          required = true,
+          value = "Content for new note.") String content) {
+    // Retrieve user and verify as needed
+    EveKitUserAccount user = (EveKitUserAccount) AuthUtil.getCurrentUser(request);
+    if (user == null) return createUserNotLoggedResponse();
+    if (!user.isAdmin()) return createUserNotAdminResponse();
+
+    // Create note
+    try {
+      // Create note
+      EveKitUserAccount target = EveKitUserAccount.getAccount(uid);
+      EveKitUserNotification newNote = EveKitUserNotification.makeNote(target, content);
+      return Response.ok()
+                     .entity(newNote)
+                     .build();
+    } catch (UserNotFoundException e) {
+      ServiceError errMsg = new ServiceError(Status.NOT_FOUND.getStatusCode(), "Target user not found");
+      return Response.status(Status.NOT_FOUND)
+                     .entity(errMsg)
+                     .build();
+    } catch (IOException e) {
+      // An internal error occurred while performing the update.
+      ServiceError errMsg = new ServiceError(
+          Status.INTERNAL_SERVER_ERROR.getStatusCode(), "Internal error creating note, contact admin if problem persists");
+      return Response.status(Status.INTERNAL_SERVER_ERROR)
+                     .entity(errMsg)
+                     .build();
+    }
+  }
+
+  /**
+   * Create a new notification for all active users.  Only administrators may broadcast
+   * notifications.
+   *
+   * @param request incoming HTTP request
+   * @param content content of new notification
+   * @return OK if the notification was created successfully for all active users.
+   */
+  @Path("/note_all/")
+  @POST
+  @ApiOperation(
+      value = "Broadcast a notification to all active users")
+  @ApiResponses(
+      value = {
+          @ApiResponse(
+              code = 200,
+              message = "note successfully created"),
+          @ApiResponse(
+              code = 401,
+              message = "requesting user not logged in or not an admin",
+              response = ServiceError.class),
+          @ApiResponse(
+              code = 500,
+              message = "Internal account service service error",
+              response = ServiceError.class),
+      })
+  public Response broadcastNotification(
+      @Context HttpServletRequest request,
+      @QueryParam("content") @ApiParam(
+          name = "content",
+          required = true,
+          value = "Content for new note.") String content) {
+    // Retrieve user and verify as needed
+    EveKitUserAccount user = (EveKitUserAccount) AuthUtil.getCurrentUser(request);
+    if (user == null) return createUserNotLoggedResponse();
+    if (!user.isAdmin()) return createUserNotAdminResponse();
+
+    // Create note
+    try {
+      // Create note(s)
+      for (EveKitUserAccount next : EveKitUserAccount.getAllAccounts()) {
+        if (!next.isActive()) continue;
+        EveKitUserNotification.makeNote(next, content);
+      }
+      return Response.ok()
+                     .build();
+    } catch (IOException e) {
+      // An internal error occurred while performing the update.
+      ServiceError errMsg = new ServiceError(
+          Status.INTERNAL_SERVER_ERROR.getStatusCode(), "Internal error creating note(s), contact admin if problem persists");
+      return Response.status(Status.INTERNAL_SERVER_ERROR)
+                     .entity(errMsg)
+                     .build();
+    }
+  }
+
+  /**
+   * Get the list of undeleted notifications for a specific user.  Only admins
+   * or the requested user may retrieve the notification list.
+   *
+   * @param request incoming HTTP request
+   * @param uid     user for which notifications will be returned
+   * @return a list of all undeleted notifications for the specified user
+   */
+  @Path("/note/{uid}")
+  @GET
+  @ApiOperation(
+      value = "Retrieve list of undeleted notifications for a user")
+  @ApiResponses(
+      value = {
+          @ApiResponse(
+              code = 200,
+              message = "note successfully created",
+              response = EveKitUserNotification.class,
+              responseContainer = "array"),
+          @ApiResponse(
+              code = 401,
+              message = "requesting user not logged in or not an admin",
+              response = ServiceError.class),
+          @ApiResponse(
+              code = 404,
+              message = "User with the specified ID not found",
+              response = ServiceError.class),
+          @ApiResponse(
+              code = 500,
+              message = "Internal account service service error",
+              response = ServiceError.class),
+      })
+  public Response listNotifications(
+      @Context HttpServletRequest request,
+      @PathParam("uid") @ApiParam(
+          name = "uid",
+          required = true,
+          value = "ID of user account for which notifications will be retrieved") long uid) {
+    // Retrieve user and verify as needed
+    EveKitUserAccount user = (EveKitUserAccount) AuthUtil.getCurrentUser(request);
+    if (user == null) return createUserNotLoggedResponse();
+    Response error = checkRequireAdmin(user, uid);
+    if (error != null) return error;
+
+    // Retrieve notes
+    try {
+      if (uid != -1) user = EveKitUserAccount.getAccount(uid);
+      List<EveKitUserNotification> notes = EveKitUserNotification.getAllNotes(user);
+      return Response.ok()
+                     .entity(notes)
+                     .build();
+    } catch (UserNotFoundException e) {
+      ServiceError errMsg = new ServiceError(Status.NOT_FOUND.getStatusCode(), "Target user not found");
+      return Response.status(Status.NOT_FOUND)
+                     .entity(errMsg)
+                     .build();
+    } catch (IOException e) {
+      // An internal error occurred while performing the update.
+      ServiceError errMsg = new ServiceError(
+          Status.INTERNAL_SERVER_ERROR.getStatusCode(), "Internal error retrieving notes, contact admin if problem persists");
+      return Response.status(Status.INTERNAL_SERVER_ERROR)
+                     .entity(errMsg)
+                     .build();
+    }
+  }
+
+  /**
+   * Mark a notification as read for a specific user.
+   *
+   * @param request incoming HTTP request
+   * @param uid     user for which notification will be marked read
+   * @param nid     notification ID of notification to mark as read
+   * @return OK if the note is successfully marked read
+   */
+  @SuppressWarnings("Duplicates")
+  @Path("/note/read/{uid}/{nid}")
+  @POST
+  @ApiOperation(
+      value = "Mark a notification as read")
+  @ApiResponses(
+      value = {
+          @ApiResponse(
+              code = 200,
+              message = "note successfully marked read"),
+          @ApiResponse(
+              code = 401,
+              message = "requesting user not logged in or not an admin",
+              response = ServiceError.class),
+          @ApiResponse(
+              code = 404,
+              message = "User with the specified ID not found, or note with specified ID not found",
+              response = ServiceError.class),
+          @ApiResponse(
+              code = 500,
+              message = "Internal account service service error",
+              response = ServiceError.class),
+      })
+  public Response markNoteRead(
+      @Context HttpServletRequest request,
+      @PathParam("uid") @ApiParam(
+          name = "uid",
+          required = true,
+          value = "ID of user account owning notification to be marked read") long uid,
+      @PathParam("nid") @ApiParam(
+          name = "nid",
+          required = true,
+          value = "Notification ID of note to be marked read") long nid) {
+    // Retrieve user and verify as needed
+    EveKitUserAccount user = (EveKitUserAccount) AuthUtil.getCurrentUser(request);
+    if (user == null) return createUserNotLoggedResponse();
+    Response error = checkRequireAdmin(user, uid);
+    if (error != null) return error;
+
+    // Retrieve notes
+    try {
+      if (uid != -1) user = EveKitUserAccount.getAccount(uid);
+      EveKitUserNotification.markNoteRead(user, nid);
+      return Response.ok()
+                     .build();
+    } catch (UserNotFoundException e) {
+      ServiceError errMsg = new ServiceError(Status.NOT_FOUND.getStatusCode(), "Target user not found");
+      return Response.status(Status.NOT_FOUND)
+                     .entity(errMsg)
+                     .build();
+    } catch (IOException e) {
+      // An internal error occurred while performing the update.
+      ServiceError errMsg = new ServiceError(
+          Status.INTERNAL_SERVER_ERROR.getStatusCode(), "Internal error setting note read, contact admin if problem persists");
+      return Response.status(Status.INTERNAL_SERVER_ERROR)
+                     .entity(errMsg)
+                     .build();
+    }
+  }
+
+  /**
+   * Mark a notification as trash for a specific user.
+   *
+   * @param request incoming HTTP request
+   * @param uid     user for which notification will be marked trash
+   * @param nid     notification ID of notification to mark as trash
+   * @return OK if the note is successfully marked trash
+   */
+  @Path("/note/trash/{uid}/{nid}")
+  @POST
+  @ApiOperation(
+      value = "Mark a notification as read")
+  @ApiResponses(
+      value = {
+          @ApiResponse(
+              code = 200,
+              message = "note successfully marked read"),
+          @ApiResponse(
+              code = 401,
+              message = "requesting user not logged in or not an admin",
+              response = ServiceError.class),
+          @ApiResponse(
+              code = 404,
+              message = "User with the specified ID not found, or note with specified ID not found",
+              response = ServiceError.class),
+          @ApiResponse(
+              code = 500,
+              message = "Internal account service service error",
+              response = ServiceError.class),
+      })
+  public Response markNoteDeleted(
+      @Context HttpServletRequest request,
+      @PathParam("uid") @ApiParam(
+          name = "uid",
+          required = true,
+          value = "ID of user account owning notification to be marked trash") long uid,
+      @PathParam("nid") @ApiParam(
+          name = "nid",
+          required = true,
+          value = "Notification ID of note to be marked trash")long nid) {
+    // Retrieve user and verify as needed
+    EveKitUserAccount user = (EveKitUserAccount) AuthUtil.getCurrentUser(request);
+    if (user == null) return createUserNotLoggedResponse();
+    Response error = checkRequireAdmin(user, uid);
+    if (error != null) return error;
+
+    // Retrieve notes
+    try {
+      if (uid != -1) user = EveKitUserAccount.getAccount(uid);
+      EveKitUserNotification.markNoteDeleted(user, nid);
+      return Response.ok()
+                     .build();
+    } catch (UserNotFoundException e) {
+      ServiceError errMsg = new ServiceError(Status.NOT_FOUND.getStatusCode(), "Target user not found");
+      return Response.status(Status.NOT_FOUND)
+                     .entity(errMsg)
+                     .build();
+    } catch (IOException e) {
+      // An internal error occurred while performing the update.
+      ServiceError errMsg = new ServiceError(
+          Status.INTERNAL_SERVER_ERROR.getStatusCode(), "Internal error setting note as trash, contact admin if problem persists");
+      return Response.status(Status.INTERNAL_SERVER_ERROR)
+                     .entity(errMsg)
+                     .build();
+    }
   }
 
 }

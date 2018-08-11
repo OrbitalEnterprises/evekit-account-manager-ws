@@ -36,6 +36,7 @@ public class ESISyncTrackerWS {
   private static final Logger log = Logger.getLogger(ESISyncTrackerWS.class.getName());
   private static final int DEF_MAX_ACCOUNT_SYNC_HISTORY = 300;
   private static final int DEF_MAX_REF_SYNC_HISTORY = 300;
+  private static final int DEF_MAX_SITE_HISTORY = 1000;
 
   @SuppressWarnings("Duplicates")
   @Path("/sync_history/{aid}")
@@ -215,6 +216,67 @@ public class ESISyncTrackerWS {
     }
   }
 
+  @Path("/sync_site_history")
+  @GET
+  @ApiOperation(
+      value = "Retrieve all finished synchronization trackers for a given endpoint type since a given timestamp",
+      notes = "Retrieves finished synchronization trackers for a given endpoint since a given timestamp")
+  @ApiResponses(
+      value = {
+          @ApiResponse(
+              code = 200,
+              message = "list of finished sync trackers for a given endpoint since a given time",
+              response = ESIEndpointSyncTracker.class,
+              responseContainer = "array"),
+          @ApiResponse(
+              code = 401,
+              message = "requesting user not authenticated or not an admin",
+              response = ServiceError.class),
+          @ApiResponse(
+              code = 500,
+              message = "Internal account service service error",
+              response = ServiceError.class),
+      })
+  public Response requestSyncSiteHistory(
+      @Context HttpServletRequest request,
+      @QueryParam("contid") @DefaultValue("-1") @ApiParam(
+          name = "contid",
+          defaultValue = "-1",
+          value = "Optional sync start time before which results will be returned") long contid,
+      @QueryParam("maxresults") @ApiParam(
+          name = "maxresults",
+          value = "Maximum number of results to return") int maxResults) {
+    // Retrieve current logged in user
+    EveKitUserAccount user = (EveKitUserAccount) AuthUtil.getCurrentUser(request);
+    if (user == null || !user.isAdmin()) {
+      ServiceError errMsg = new ServiceError(Status.UNAUTHORIZED.getStatusCode(), "User not logged in or is not an administrator");
+      return Response.status(Status.UNAUTHORIZED)
+                     .entity(errMsg)
+                     .build();
+    }
+
+    try {
+      // Set defaults
+      maxResults = OrbitalProperties.getNonzeroLimited(maxResults, (int) PersistentProperty
+          .getLongPropertyWithFallback(OrbitalProperties.getPropertyName(ESIEndpointSyncTracker.class, "maxresults"), DEF_MAX_SITE_HISTORY));
+
+      // Retrieve and return history
+      List<ESIEndpointSyncTracker> results = ESIEndpointSyncTracker.getAllSiteHistory(contid, maxResults);
+      return Response.ok()
+                     .entity(results)
+                     .build();
+
+    } catch (IOException e) {
+      log.log(Level.WARNING, "query error", e);
+      ServiceError errMsg = new ServiceError(
+          Status.INTERNAL_SERVER_ERROR.getStatusCode(), "Error retrieving site history, contact admin if this problem persists");
+      return Response.status(Status.INTERNAL_SERVER_ERROR)
+                     .entity(errMsg)
+                     .build();
+    }
+  }
+
+
   @Path("/finish_tracker/{uid}/{aid}/{tid}")
   @GET
   @ApiOperation(
@@ -307,7 +369,7 @@ public class ESISyncTrackerWS {
   @Path("/ref_sync_history")
   @GET
   @ApiOperation(
-      value = "Retrieve synchronization history for a reference data",
+      value = "Retrieve synchronization history for reference data",
       notes = "Retrieves reference data synchronization history ordered in descending order by sync start time")
   @ApiResponses(
       value = {
