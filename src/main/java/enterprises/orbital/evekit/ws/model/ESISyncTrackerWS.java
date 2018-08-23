@@ -276,6 +276,74 @@ public class ESISyncTrackerWS {
     }
   }
 
+  @Path("/sync_site_stats")
+  @GET
+  @ApiOperation(
+      value = "Retrieve endpoint synchronization stats (attemps and failures) since a given time")
+  @ApiResponses(
+      value = {
+          @ApiResponse(
+              code = 200,
+              message = "Sync stats for the given endpoint",
+              response = SyncEndpointStats.class),
+          @ApiResponse(
+              code = 401,
+              message = "requesting user not authenticated or not an admin",
+              response = ServiceError.class),
+          @ApiResponse(
+              code = 500,
+              message = "Internal account service service error",
+              response = ServiceError.class),
+      })
+  public Response requestSyncSiteStats(
+      @Context HttpServletRequest request,
+      @QueryParam("endpoint") @ApiParam(
+          name = "endpoint",
+          required = true,
+          value = "endpoint for which stats are requested")
+          ESISyncEndpoint endpoint,
+      @QueryParam("since") @ApiParam(
+          name = "since",
+          required = true,
+          value = "timestamp from which stats should be calculated") long since) {
+    // Retrieve current logged in user
+    EveKitUserAccount user = (EveKitUserAccount) AuthUtil.getCurrentUser(request);
+    if (user == null || !user.isAdmin()) {
+      ServiceError errMsg = new ServiceError(Status.UNAUTHORIZED.getStatusCode(), "User not logged in or is not an administrator");
+      return Response.status(Status.UNAUTHORIZED)
+                     .entity(errMsg)
+                     .build();
+    }
+
+    try {
+      SyncEndpointStats stats = new SyncEndpointStats(endpoint, 0, 0);
+      long contid = -1;
+      List<ESIEndpointSyncTracker> results;
+      do {
+        results = ESIEndpointSyncTracker.getAllSiteHistory(endpoint, contid, 1000);
+        if (results.isEmpty()) break;
+        for (ESIEndpointSyncTracker tracker : results) {
+          if (tracker.getSyncStart() < since) break;
+          contid = tracker.getSyncStart();
+          stats.incrementAttempts();
+          if (tracker.getStatus() != ESISyncState.FINISHED) stats.incrementFailures();
+        }
+      } while (true);
+
+      return Response.ok()
+                     .entity(stats)
+                     .build();
+
+    } catch (IOException e) {
+      log.log(Level.WARNING, "query error", e);
+      ServiceError errMsg = new ServiceError(
+          Status.INTERNAL_SERVER_ERROR.getStatusCode(), "Error retrieving site history, contact admin if this problem persists");
+      return Response.status(Status.INTERNAL_SERVER_ERROR)
+                     .entity(errMsg)
+                     .build();
+    }
+  }
+
 
   @Path("/finish_tracker/{uid}/{aid}/{tid}")
   @GET
