@@ -319,11 +319,12 @@ public class ESISyncTrackerWS {
       SyncEndpointStats stats = new SyncEndpointStats(endpoint, 0, 0);
       long contid = -1;
       List<ESIEndpointSyncTracker> results;
+      compute_stats:
       do {
         results = ESIEndpointSyncTracker.getAllSiteHistory(endpoint, contid, 1000);
         if (results.isEmpty()) break;
         for (ESIEndpointSyncTracker tracker : results) {
-          if (tracker.getSyncStart() < since) break;
+          if (tracker.getSyncStart() < since) break compute_stats;
           contid = tracker.getSyncStart();
           stats.incrementAttempts();
           if (tracker.getStatus() != ESISyncState.FINISHED) stats.incrementFailures();
