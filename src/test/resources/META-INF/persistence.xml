@@ -16,10 +16,6 @@
         <class>enterprises.orbital.evekit.account.EveKitUserAuthSource</class>
         <class>enterprises.orbital.evekit.account.SynchronizedAccountAccessKey</class>
         <class>enterprises.orbital.evekit.account.SynchronizedEveAccount</class>
-        <class>enterprises.orbital.evekit.model.CapsuleerSyncTracker</class>
-        <class>enterprises.orbital.evekit.model.CorporationSyncTracker</class>
-        <class>enterprises.orbital.evekit.model.RefSyncTracker</class>
-        <class>enterprises.orbital.evekit.model.SyncTracker</class>
 
         <properties>
             <property name="javax.persistence.jdbc.driver" value="org.hsqldb.jdbcDriver"/>
